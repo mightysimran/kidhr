@@ -1,0 +1,167 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#16352d">
+  <meta name="description" content="kidhr turns the way people speak about places into helpful walking directions.">
+  <link rel="manifest" href="/manifest.webmanifest">
+  <link rel="icon" href="/icon.svg">
+  <link rel="preconnect" href="https://tile.openstreetmap.org">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+  <link rel="stylesheet" href="/styles.css">
+  <title>kidhr · Amritsar</title>
+</head>
+<body>
+  <div id="welcome" class="modal-backdrop" hidden>
+    <section class="modal-card" aria-labelledby="welcome-title">
+      <span class="brand-mark">ਕਿੱਧਰ?</span>
+      <p class="eyebrow">WELCOME TO KIDHR</p>
+      <h1 id="welcome-title">Tusi keh ke daso. <br>Raasta assi labhange.</h1>
+      <p>Choose the language kidhr should listen and reply in.</p>
+      <div class="language-grid">
+        <button class="language-card" data-welcome-lang="pa"><strong>ਪੰਜਾਬੀ</strong><span>Punjabi</span></button>
+        <button class="language-card" data-welcome-lang="hi"><strong>हिन्दी</strong><span>Hindi</span></button>
+        <button class="language-card selected" data-welcome-lang="en"><strong>English</strong><span>English</span></button>
+      </div>
+      <button class="btn primary full" id="begin-btn">Start finding places</button>
+    </section>
+  </div>
+
+  <div class="app-shell">
+    <aside class="sidebar">
+      <a class="brand" href="#home" data-view-link="home"><span class="brand-pin">k</span><span>kidhr<small>Amritsar pilot</small></span></a>
+      <nav class="side-nav" aria-label="Main navigation">
+        <button data-view="home" class="active"><span>⌂</span> Find a place</button>
+        <button data-view="voice"><span>◉</span> Voice & transcript</button>
+        <button data-view="route"><span>⌁</span> Route preview</button>
+        <button data-view="navigate"><span>⌖</span> Navigate</button>
+        <button data-view="contribute"><span>＋</span> Teach a route</button>
+        <button data-view="verify"><span>✓</span> Verify</button>
+        <button data-view="memory"><span>◫</span> Landmark memory</button>
+      </nav>
+      <div class="sidebar-note"><span class="pulse"></span><p><strong>Community map</strong><br><span id="community-count">7 places remembered</span></p></div>
+      <button class="text-btn" id="large-text-btn">Aa&nbsp; Large text</button>
+    </aside>
+
+    <div class="workspace">
+      <header class="topbar">
+        <a class="mobile-brand" href="#home" data-view-link="home"><span class="brand-pin">k</span><strong>kidhr</strong></a>
+        <p class="location-chip"><span>●</span> Amritsar, Punjab</p>
+        <div class="top-actions">
+          <label><span class="sr-only">Reply language</span><select id="language-select"><option value="en">English</option><option value="pa">ਪੰਜਾਬੀ</option><option value="hi">हिन्दी</option></select></label>
+          <div class="segment" aria-label="Script"><button data-script="roman" class="active">Aa</button><button data-script="native">ਅ / अ</button></div>
+          <button class="icon-btn" id="install-btn" title="Install kidhr" aria-label="Install kidhr">↓</button>
+        </div>
+      </header>
+
+      <main id="main-content">
+        <section class="view active" data-screen="home" aria-labelledby="home-title">
+          <div class="home-layout">
+            <div class="hero-panel">
+              <p class="eyebrow">MAPS KNOW COORDINATES. PEOPLE KNOW PLACES.</p>
+              <h1 id="home-title">Kidhr jaana hai?</h1>
+              <p class="lead">Say it the way you would tell a friend. We understand landmarks, old names and local shortcuts.</p>
+              <form id="find-form" class="find-box">
+                <label class="sr-only" for="find-input">Where do you want to go?</label>
+                <input id="find-input" autocomplete="off" value="Railway station ton Darbar Sahib" placeholder="e.g. Hall Gate ke andar Sharma di dukaan">
+                <button type="submit" class="btn primary">Find way</button>
+              </form>
+              <button class="voice-button" id="home-mic" type="button"><span class="mic-disc">●</span><span><strong>Press and hold to speak</strong><small id="mic-help">Release when you finish</small></span></button>
+              <div class="privacy-line"><span>◌</span> Your voice is processed, then discarded.</div>
+            </div>
+            <aside class="nearby-panel">
+              <div class="section-heading"><div><p class="eyebrow">POPULAR NEARBY</p><h2>Places people ask for</h2></div><button class="text-btn" data-view="memory">See memory</button></div>
+              <div id="nearby-list" class="nearby-list"></div>
+            </aside>
+          </div>
+          <div class="prompt-section">
+            <div class="section-heading"><div><p class="eyebrow">SAY IT NATURALLY</p><h2>Try a local way of asking</h2></div></div>
+            <div class="prompt-grid" id="prompt-grid"></div>
+          </div>
+        </section>
+
+        <section class="view" data-screen="voice" aria-labelledby="voice-title">
+          <div class="page-head"><div><p class="eyebrow">VOICE & TRANSCRIPT</p><h1 id="voice-title">This is what I heard</h1><p>Edit any word before we look for the route.</p></div><span class="state-pill" id="voice-state">Ready to confirm</span></div>
+          <div class="two-column">
+            <article class="card transcript-card">
+              <label for="transcript">Editable transcript</label>
+              <textarea id="transcript" rows="4">Railway station ton Darbar Sahib</textarea>
+              <div class="alternatives"><span>Other hearing</span><button data-alt="Railway station to Darbar Sahib">Railway station to Darbar Sahib</button><button data-alt="Railway station ton Golden Temple">…ton Golden Temple</button></div>
+              <button class="voice-button compact" id="voice-mic"><span class="mic-disc">●</span><span><strong>Hold to say it again</strong><small>Confirmed details stay saved</small></span></button>
+            </article>
+            <article class="card intent-card">
+              <p class="eyebrow">LANDMARKS UNDERSTOOD</p>
+              <div class="intent-row"><span>Starting near</span><strong id="origin-value">Amritsar Railway Station</strong><button data-edit-detail="origin">Change</button></div>
+              <div class="intent-line"></div>
+              <div class="intent-row"><span>Going to</span><strong id="destination-value">Harmandir Sahib</strong><button data-edit-detail="destination">Change</button></div>
+              <div class="alias-note"><strong>“Darbar Sahib” remembered</strong><span>Local name for Harmandir Sahib</span></div>
+              <p class="readback" id="readback">Railway Station ton Darbar Sahib tak paidal raasta labhan?</p>
+              <div class="button-row"><button class="btn secondary" data-view="home">Change request</button><button class="btn primary" id="confirm-route">Haan, yahi hai</button></div>
+            </article>
+          </div>
+        </section>
+
+        <section class="view" data-screen="route" aria-labelledby="route-title">
+          <div class="page-head"><div><p class="eyebrow">ROUTE PREVIEW</p><h1 id="route-title">Station to Darbar Sahib</h1><p>Landmark-first walking directions from mapped streets.</p></div><span class="verified-badge">◆ Curated route</span></div>
+          <div class="map-layout">
+            <article class="map-card"><div id="route-map" class="map" aria-label="Map showing the walking route"></div><div class="map-key"><span><i class="dot start"></i> Railway Station</span><span><i class="dot end"></i> Darbar Sahib</span></div></article>
+            <aside class="route-panel card">
+              <div class="route-summary"><div><strong id="route-distance">2.2 km</strong><span>Distance</span></div><div><strong id="route-time">30 min</strong><span>Walking</span></div><div><strong>5</strong><span>Landmark cues</span></div></div>
+              <p class="route-status" id="route-status">Checking mapped walking streets…</p>
+              <ol id="preview-steps" class="steps"></ol>
+              <div class="route-note"><strong>Local note</strong><p>Hall Bazaar can be crowded in the evening. Follow pedestrian signs near the heritage street.</p></div>
+              <div class="button-row"><button class="btn secondary" id="share-route">Share</button><button class="btn primary" id="start-navigation">Start walking</button></div>
+            </aside>
+          </div>
+        </section>
+
+        <section class="view" data-screen="navigate" aria-labelledby="navigate-title">
+          <div class="nav-screen">
+            <div class="nav-instruction">
+              <p class="eyebrow">NEXT LANDMARK</p><span class="turn-icon">↑</span><h1 id="navigate-title">Walk towards Hall Gate</h1><p id="nav-detail">Continue on the mapped walking route for about 450 metres.</p>
+              <div class="progress-track"><span id="progress-fill"></span></div><p class="progress-copy"><strong id="step-count">Step 1 of 5</strong><span id="remaining">2.2 km remaining</span></p>
+              <div class="nav-controls"><button id="repeat-step">↻<span>Repeat</span></button><button id="next-step" class="primary-round">✓<span>Next</span></button><button id="wrong-way">!<span>Galat raasta</span></button><button id="stop-nav">■<span>Stop</span></button></div>
+            </div>
+            <div id="nav-map" class="map nav-map"></div>
+          </div>
+        </section>
+
+        <section class="view" data-screen="contribute" aria-labelledby="contribute-title">
+          <div class="page-head"><div><p class="eyebrow">TEACH KIDHR</p><h1 id="contribute-title">Share a route locals know</h1><p>Your directions stay unverified until another local reviews them.</p></div><span class="state-pill">Saved on this device</span></div>
+          <form id="contribute-form" class="form-layout">
+            <article class="card form-card">
+              <div class="field-pair"><label>Start landmark<input id="contrib-origin" required placeholder="e.g. Hall Gate"></label><label>Destination<input id="contrib-destination" required placeholder="e.g. Katra Ahluwalia"></label></div>
+              <label>Landmarks and turns<textarea id="contrib-steps" required rows="6" placeholder="Walk through Hall Gate, pass the old book market, then turn left…"></textarea></label>
+              <button type="button" class="voice-button compact" id="contribute-mic"><span class="mic-disc">●</span><span><strong>Hold to describe the way</strong><small>You can edit it afterwards</small></span></button>
+              <label class="check-row"><input type="checkbox" id="public-place" required><span><strong>These are public landmarks</strong><small>No private personal details are included.</small></span></label>
+              <div class="button-row"><button type="reset" class="btn secondary">Clear</button><button type="submit" class="btn primary">Save unverified route</button></div>
+            </article>
+            <aside class="card contribution-guide"><p class="eyebrow">A HELPFUL ROUTE HAS</p><ul><li><span>1</span>Clear start and destination landmarks</li><li><span>2</span>Turns in the order someone walks them</li><li><span>3</span>Only public, mapped places</li></ul><div class="mini-map">Hall Gate <span>······</span> Your place</div></aside>
+          </form>
+        </section>
+
+        <section class="view" data-screen="verify" aria-labelledby="verify-title">
+          <div class="page-head"><div><p class="eyebrow">COMMUNITY CHECK</p><h1 id="verify-title">Does this route sound right?</h1><p>Independent local reviews help everyone know what to trust.</p></div><span class="state-pill" id="claim-count">1 route to check</span></div>
+          <div class="verify-layout">
+            <article class="card claim-card" id="claim-card"><div class="claim-top"><span class="status unverified">Unverified</span><span id="claim-author">Shared by a neighbour</span></div><h2 id="claim-title">Hall Gate to Katra Ahluwalia</h2><p id="claim-steps">Enter through Hall Gate, continue along Hall Bazaar and follow the public lane towards Katra Ahluwalia.</p><div class="evidence"><span>⌖ Public landmarks</span><span>◌ Walking claim</span></div><label class="check-row"><input type="checkbox" id="walked-it"><span><strong>I walked this route</strong><small>This counts as a field-based review.</small></span></label><label>Optional local note<textarea id="review-note" rows="3" placeholder="What should another walker know?"></textarea></label><div class="vote-row"><button data-vote="no" class="btn danger">Nahi</button><button data-vote="unknown" class="btn secondary">Pata nahi</button><button data-vote="yes" class="btn primary">Haan</button></div></article>
+            <aside class="card trust-card"><p class="eyebrow">HOW TRUST GROWS</p><h2>Community Verified needs</h2><ul><li><strong>2</strong> independent positive reviews</li><li><strong>1</strong> review from someone who walked it</li><li><strong>0</strong> serious unresolved disputes</li></ul><p>Route authors cannot verify their own route, and each person gets one review.</p></aside>
+          </div>
+        </section>
+
+        <section class="view" data-screen="memory" aria-labelledby="memory-title">
+          <div class="page-head memory-head"><div><p class="eyebrow">LANDMARK MEMORY</p><h1 id="memory-title">Old names still find today’s places</h1><p>Community knowledge connects remembered names to current mapped places.</p></div><label class="search-box"><span>⌕</span><input id="memory-search" placeholder="Search Darbar Sahib, Hall Gate…"></label></div>
+          <div class="memory-grid" id="memory-grid"></div>
+        </section>
+      </main>
+
+      <nav class="bottom-nav" aria-label="Mobile navigation">
+        <button data-view="home" class="active"><span>⌂</span>Find</button><button data-view="route"><span>⌁</span>Route</button><button data-view="contribute"><span>＋</span>Teach</button><button data-view="verify"><span>✓</span>Verify</button><button data-view="memory"><span>◫</span>Memory</button>
+      </nav>
+    </div>
+  </div>
+  <div id="toast" role="status" aria-live="polite"></div>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="/app.js" defer></script>
+</body>
+</html>

@@ -1,0 +1,10 @@
+{
+  "name": "kidhr — local ways, spoken",
+  "short_name": "kidhr",
+  "description": "Voice-first landmark navigation for Amritsar",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f7f5ed",
+  "theme_color": "#16352d",
+  "icons": [{ "src": "/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }]
+}
