@@ -136,6 +136,7 @@ The prototype deliberately uses a small static architecture so teammates can run
 | --- | --- |
 | Interface | HTML, CSS, and browser JavaScript |
 | Mapping | Leaflet with OpenStreetMap tiles |
+| Place search | User-triggered OpenStreetMap Nominatim search within Amritsar |
 | Pedestrian routing | Public Valhalla OpenStreetMap service |
 | Speech input | Browser Web Speech API |
 | Spoken replies | Browser Speech Synthesis API |
@@ -153,6 +154,7 @@ flowchart TB
     APP --> SPEECH[Browser speech recognition and synthesis]
     APP --> MAP[Leaflet map renderer]
     MAP --> TILES[OpenStreetMap tile service]
+    APP --> GEOCODER[OpenStreetMap place search]
     APP --> ROUTER[Public Valhalla pedestrian router]
     APP --> STORE[Browser localStorage]
     SW[service-worker.js] --> CACHE[Offline application-shell cache]
@@ -288,9 +290,9 @@ When voice recognition is unsupported or permission is denied, the interface kee
 
 ## Maps and routing behavior
 
-Landmark coordinates are used as map anchors. The app requests the walking geometry between Amritsar Railway Station and Harmandir Sahib from the public Valhalla service using OpenStreetMap data.
+Known landmarks use their seeded map coordinates. Other typed origin and destination names are searched in OpenStreetMap within the Amritsar area. When a search returns multiple matches, the user chooses the correct pins before routing. A confirmed pair is sent to the public Valhalla service for pedestrian geometry and turn instructions. The Railway Station to Harmandir Sahib journey remains the curated demo route.
 
-The application draws a path only after the routing service returns mapped geometry. If live routing fails, it keeps the written landmark cues visible and clearly reports that no path was drawn. The app does not invent entrances or route geometry.
+The application draws a path only after the routing service returns mapped geometry. If live routing fails, it clearly reports that no path was drawn; the curated demo can still show its stored text directions. If place search fails or returns no match, the request stays visible so the user can edit it or contribute the place. The app does not invent entrances or route geometry.
 
 Public routing and tile services can be unavailable or rate-limited. A production deployment should use a supported routing provider or a maintained Amritsar pedestrian-routing service with appropriate capacity and usage terms.
 
@@ -436,7 +438,7 @@ Confirm the app is running through a local HTTP server and that `styles.css` ret
 
 ### The route line does not appear
 
-The public Valhalla endpoint may be unavailable or rate-limited. The fallback message and stored landmark steps should remain visible. Do not replace the missing geometry with a hand-drawn path.
+The public Valhalla endpoint may be unavailable or rate-limited. The curated demo keeps its stored text directions visible, while other requests offer a route retry. Do not replace missing geometry with a hand-drawn path.
 
 ### A contribution disappeared
 
