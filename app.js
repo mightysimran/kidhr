@@ -197,13 +197,12 @@ function bindHoldToTalk(buttonId, targetId) {
   const button = document.getElementById(buttonId);
   const Recognition = window.SpeechRecognition || window.webkitSpeechRecognition;
   let recognition;
-  const start = event => {
-    event.preventDefault();
-    if (!Recognition) {
-      toast("Voice recognition is not available here. You can type instead.");
-      document.getElementById(targetId)?.focus();
-      return;
-    }
+  let promptUtterance;
+  let promptDelay;
+  let isHeld = false;
+
+  const startRecognition = () => {
+    if (!isHeld) return;
     recognition = new Recognition();
     recognition.lang = state.lang === "pa" ? "pa-IN" : state.lang === "hi" ? "hi-IN" : "en-IN";
     recognition.interimResults = true;
@@ -219,16 +218,56 @@ function bindHoldToTalk(buttonId, targetId) {
       toast(message);
       speak(message);
     };
-    recognition.onend = () => button.classList.remove("listening");
+    recognition.onend = () => {
+      recognition = null;
+      button.classList.remove("listening");
+    };
     try {
       recognition.start();
       button.classList.add("listening");
       toast(copy[state.lang].listen);
-      speak(copy[state.lang].listen);
-    } catch (_) {}
+    } catch (_) {
+      recognition = null;
+    }
+  };
+
+  const start = event => {
+    event.preventDefault();
+    if (isHeld) return;
+    if (!Recognition) {
+      toast("Voice recognition is not available here. You can type instead.");
+      document.getElementById(targetId)?.focus();
+      return;
+    }
+    isHeld = true;
+    if (!("speechSynthesis" in window) || !("SpeechSynthesisUtterance" in window)) {
+      startRecognition();
+      return;
+    }
+    speechSynthesis.cancel();
+    promptUtterance = new SpeechSynthesisUtterance(copy[state.lang].listen);
+    promptUtterance.lang = state.lang === "pa" ? "pa-IN" : state.lang === "hi" ? "hi-IN" : "en-IN";
+    promptUtterance.onend = () => {
+      promptUtterance = null;
+      promptDelay = setTimeout(startRecognition, 150);
+    };
+    promptUtterance.onerror = () => {
+      promptUtterance = null;
+      startRecognition();
+    };
+    speechSynthesis.speak(promptUtterance);
   };
   const stop = event => {
     event.preventDefault();
+    isHeld = false;
+    clearTimeout(promptDelay);
+    promptDelay = null;
+    if (promptUtterance) {
+      promptUtterance.onend = null;
+      promptUtterance.onerror = null;
+      promptUtterance = null;
+      speechSynthesis.cancel();
+    }
     if (recognition) recognition.stop();
     button.classList.remove("listening");
   };
