@@ -95,6 +95,11 @@
               <div class="intent-row"><span>Starting near</span><strong id="origin-value">Amritsar Railway Station</strong><button data-edit-detail="origin">Change</button></div>
               <div class="intent-line"></div>
               <div class="intent-row"><span>Going to</span><strong id="destination-value">Harmandir Sahib</strong><button data-edit-detail="destination">Change</button></div>
+              <div class="endpoint-editor" id="endpoint-editor" hidden>
+                <label id="endpoint-editor-label" for="endpoint-editor-input">Change endpoint</label>
+                <input id="endpoint-editor-input" type="text" autocomplete="off" placeholder="Type a place or landmark">
+                <div class="button-row"><button class="btn secondary" id="cancel-endpoint-edit" type="button">Cancel</button><button class="btn primary" id="save-endpoint-edit" type="button">Update place</button></div>
+              </div>
               <div class="alias-note"><strong>“Darbar Sahib” remembered</strong><span>Local name for Harmandir Sahib</span></div>
               <p class="readback" id="readback">Railway Station ton Darbar Sahib tak paidal raasta labhan?</p>
               <div class="button-row"><button class="btn secondary" data-view="home">Change request</button><button class="btn primary" id="confirm-route">Haan, yahi hai</button></div>

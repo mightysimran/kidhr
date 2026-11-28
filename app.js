@@ -1,11 +1,11 @@
 const places = [
-  { name: "Harmandir Sahib", alias: "Darbar Sahib · Golden Temple", icon: "ੴ", lat: 31.6200, lng: 74.8765 },
-  { name: "Jallianwala Bagh", alias: "Jallianwala wala bagh", icon: "J", lat: 31.6206, lng: 74.8806 },
-  { name: "Hall Gate", alias: "Gandhi Gate", icon: "H", lat: 31.6288, lng: 74.8727 },
-  { name: "Amritsar Railway Station", alias: "Railway station", icon: "R", lat: 31.6338, lng: 74.8673 },
-  { name: "Akal Takht", alias: "Sri Akal Takht Sahib", icon: "A", lat: 31.6196, lng: 74.8760 },
-  { name: "Partition Museum", alias: "Town Hall museum", icon: "P", lat: 31.6254, lng: 74.8794 },
-  { name: "Durgiana Temple", alias: "Durgiana Mandir", icon: "D", lat: 31.6294, lng: 74.8661 }
+  { name: "Harmandir Sahib", alias: "Darbar Sahib · Golden Temple · स्वर्ण मंदिर · गोल्डन टेंपल · दरबार साहिब · ਹਰਿਮੰਦਰ ਸਾਹਿਬ · ਦਰਬਾਰ ਸਾਹਿਬ · ਸੁਨਹਿਰੀ ਮੰਦਰ · ਗੋਲਡਨ ਟੈਂਪਲ", icon: "ੴ", lat: 31.6200, lng: 74.8765 },
+  { name: "Jallianwala Bagh", alias: "Jallianwala wala bagh · जलियांवाला बाग · जालियांवाला बाग · ਜਲ੍ਹਿਆਂਵਾਲਾ ਬਾਗ", icon: "J", lat: 31.6206, lng: 74.8806 },
+  { name: "Hall Gate", alias: "Gandhi Gate · हॉल गेट · गांधी गेट · ਹਾਲ ਗੇਟ · ਗਾਂਧੀ ਗੇਟ", icon: "H", lat: 31.6288, lng: 74.8727 },
+  { name: "Amritsar Railway Station", alias: "Railway station · रेलवे स्टेशन · अमृतसर रेलवे स्टेशन · ਰੇਲਵੇ ਸਟੇਸ਼ਨ · ਅੰਮ੍ਰਿਤਸਰ ਰੇਲਵੇ ਸਟੇਸ਼ਨ", icon: "R", lat: 31.6338, lng: 74.8673 },
+  { name: "Akal Takht", alias: "Sri Akal Takht Sahib · अकाल तख्त · श्री अकाल तख्त साहिब · ਅਕਾਲ ਤਖ਼ਤ · ਸ੍ਰੀ ਅਕਾਲ ਤਖ਼ਤ ਸਾਹਿਬ", icon: "A", lat: 31.6196, lng: 74.8760 },
+  { name: "Partition Museum", alias: "Town Hall museum · विभाजन संग्रहालय · टाउन हॉल संग्रहालय · ਵੰਡ ਅਜਾਇਬ ਘਰ · ਟਾਊਨ ਹਾਲ ਅਜਾਇਬ ਘਰ", icon: "P", lat: 31.6254, lng: 74.8794 },
+  { name: "Durgiana Temple", alias: "Durgiana Mandir · दुर्गियाना मंदिर · ਦੁਰਗਿਆਣਾ ਮੰਦਰ", icon: "D", lat: 31.6294, lng: 74.8661 }
 ];
 
 const prompts = [
@@ -20,7 +20,11 @@ const prompts = [
   "Golden Temple from railway station",
   "Jallianwala Bagh de pichhe wali gali",
   "Katra Ahluwalia market",
-  "Partition Museum se Darbar Sahib"
+  "Partition Museum se Darbar Sahib",
+  "रेलवे स्टेशन से दरबार साहिब",
+  "हॉल गेट से जलियांवाला बाग",
+  "ਰੇਲਵੇ ਸਟੇਸ਼ਨ ਤੋਂ ਦਰਬਾਰ ਸਾਹਿਬ",
+  "ਹਾਲ ਗੇਟ ਤੋਂ ਜਲ੍ਹਿਆਂਵਾਲਾ ਬਾਗ"
 ];
 
 const memory = [
@@ -57,6 +61,11 @@ const state = {
   routeRequestId: 0,
   originQuery: "",
   destinationQuery: "",
+  originContext: "",
+  destinationContext: "",
+  requestText: "",
+  originRange: null,
+  destinationRange: null,
   originCandidates: [],
   destinationCandidates: [],
   activeRouteSteps: [],
@@ -66,6 +75,7 @@ const state = {
   maps: {},
   navStep: 0,
   requestMode: "curated",
+  editingEndpoint: null,
   deferredInstall: null,
   deviceUser: localStorage.getItem("kidhr-user") || crypto.randomUUID()
 };
@@ -112,41 +122,93 @@ function renderMemory(items) {
     : '<article class="memory-card"><span class="memory-type">NO MATCH YET</span><h2>Try another local name</h2><p>Your search is still in the box. You can also teach this place from the Teach screen.</p><button class="btn primary" data-view="contribute">Add this place</button></article>';
 }
 
-function parseRequest(query) {
+function requestReadback() {
+  const origin = state.requestMode === "current"
+    ? state.lang === "hi" ? (state.script === "native" ? "मेरी मौजूदा जगह" : "meri jagah") : state.lang === "pa" ? (state.script === "native" ? "ਮੇਰੀ ਮੌਜੂਦਾ ਥਾਂ" : "meri maujooda thaan") : "my current location"
+    : state.originQuery || "My location";
+  const destination = state.destinationQuery || "your destination";
+  const lang = state.lang;
+  if (state.requestMode === "unknown") {
+    if (!state.requestText) return copy[lang].confirm;
+    if (state.script === "native" && lang === "hi") return `मैंने “${state.requestText}” सुना। क्या इसे खोजूँ?`;
+    if (state.script === "native" && lang === "pa") return `ਮੈਂ “${state.requestText}” ਸੁਣਿਆ। ਕੀ ਇਸਨੂੰ ਲੱਭਾਂ?`;
+    if (lang === "hi") return `Maine suna “${state.requestText}”. Kya ise dhoondhun?`;
+    if (lang === "pa") return `Main suneya “${state.requestText}”. Ki isnu labhan?`;
+    return `I heard “${state.requestText}”. Should I look for this place?`;
+  }
+  if (state.requestMode === "unavailable") {
+    const found = endpointLabel(state.routeDestination, "destination") || destination;
+    if (state.script === "native" && lang === "hi") return `${found} मिला। पैदल रास्ता खोजने के लिए शुरुआती जगह भी बताइए।`;
+    if (state.script === "native" && lang === "pa") return `${found} ਮਿਲਿਆ। ਪੈਦਲ ਰਸਤਾ ਲੱਭਣ ਲਈ ਸ਼ੁਰੂਆਤੀ ਥਾਂ ਵੀ ਦੱਸੋ।`;
+    if (lang === "hi") return `${found} mil gaya. Paidal raasta dhoondhne ke liye shuruaati jagah bhi batayein.`;
+    if (lang === "pa") return `${found} mil gaya. Paidal raah layi shuruaati thaan vi daso.`;
+    return `I found ${found}. Tell me the starting place to find a walking route.`;
+  }
+  if (state.script === "native" && lang === "hi") return `क्या ${origin} से ${destination} तक पैदल रास्ता ढूँढूँ?`;
+  if (state.script === "native" && lang === "pa") return `${origin} ਤੋਂ ${destination} ਤੱਕ ਪੈਦਲ ਰਸਤਾ ਲੱਭਾਂ?`;
+  if (lang === "pa") return `${origin} ton ${destination} tak paidal raah labhan?`;
+  if (lang === "hi") return `${origin} se ${destination} tak paidal raasta dhoondhun?`;
+  return `Walk from ${origin} to ${destination}. Is that right?`;
+}
+
+function refreshReadback(shouldSpeak = false) {
+  const readback = requestReadback();
+  $("#readback").textContent = readback;
+  if (shouldSpeak) speak(readback);
+  return readback;
+}
+
+function syncTranscriptEdit() {
+  const editedRequest = $("#transcript").value.trim();
+  if (!state.requestText || !editedRequest || editedRequest === state.requestText) return false;
+  $("#find-input").value = editedRequest;
+  parseRequest(editedRequest, { announce: false });
+  return true;
+}
+
+function endpointLabel(place, side) {
+  const context = side === "origin" ? state.originContext : state.destinationContext;
+  return `${place?.name || (side === "origin" ? state.originQuery : state.destinationQuery)}${context ? ` · ${context}` : ""}`;
+}
+
+function parseRequest(query, { announce = true, navigate = true } = {}) {
   state.routeRequestId += 1;
   $("#place-choices").replaceChildren();
   const text = query.trim();
   const leadingFrom = text.match(/^from\s+(.+?)\s+(?:to|ton)\s+(.+)$/i);
   const fromPhrase = text.match(/^(.+?)\s+from\s+(.+)$/i);
-  const split = text.match(/\s+(?:ton|to|se|से|ਤੋਂ)\s+/i);
+  const split = text.match(/\s+(?:ton|to|se|से|ਤੋਂ)\s+/iu);
   const originText = leadingFrom ? leadingFrom[1].trim() : fromPhrase ? fromPhrase[2].trim() : split ? text.slice(0, split.index).trim() : "";
   const destinationText = leadingFrom ? leadingFrom[2].trim() : fromPhrase ? fromPhrase[1].trim() : split ? text.slice(split.index + split[0].length).trim() : text;
+  const originStart = leadingFrom ? text.indexOf(leadingFrom[1]) : fromPhrase ? text.lastIndexOf(originText) : split ? 0 : -1;
+  const destinationStart = leadingFrom ? text.lastIndexOf(destinationText) : fromPhrase ? 0 : split ? split.index + split[0].length : 0;
   const matchPlace = value => {
-    const normalize = value => value.toLocaleLowerCase().replace(/[^\p{L}\p{N}]+/gu, " ").trim();
-    let normalized = normalize(value);
-    let cleaned;
-    do {
-      cleaned = normalized.replace(/\s+(?:tak|kidhar hai|where is it|jana hai|paidal|walking)$/i, "").trim();
-      if (cleaned === normalized) break;
-      normalized = cleaned;
-    } while (true);
-    return places
-      .flatMap(place => [place.name, ...place.alias.split("·").map(alias => alias.trim())].map(alias => ({ place, alias })))
-      .sort((a, b) => b.alias.length - a.alias.length)
-      .find(({ alias }) => {
-        const key = alias.toLocaleLowerCase().replace(/[^\p{L}\p{N}]+/gu, " ").trim();
-        return normalized === key;
-      })?.place || null;
+    const normalize = input => input.toLocaleLowerCase().replace(/[^\p{L}\p{N}]+/gu, " ").trim();
+    const normalized = normalize(value);
+    const matches = places.flatMap(place => [place.name, ...place.alias.split("·").map(alias => alias.trim())]
+      .map(alias => ({ place, alias, key: normalize(alias) })))
+      .filter(({ key }) => key && ` ${normalized} `.includes(` ${key} `));
+    const uniquePlaces = [...new Map(matches.map(match => [match.place.name, match.place])).values()];
+    const longest = matches.sort((a, b) => b.key.length - a.key.length)[0];
+    const context = longest ? ` ${normalized} `.replace(` ${longest.key} `, " ").replace(/\s+/g, " ").trim() : "";
+    return { candidates: uniquePlaces, context };
   };
-  const originPlace = originText ? matchPlace(originText) : null;
-  const destinationPlace = matchPlace(destinationText);
-  const currentLocationRequested = !originText || ["my location", "current location", "current position"].includes(originText.toLocaleLowerCase());
+  const originMatch = originText ? matchPlace(originText) : { candidates: [], context: "" };
+  const destinationMatch = matchPlace(destinationText);
+  const originPlace = originMatch.candidates.length === 1 ? originMatch.candidates[0] : null;
+  const destinationPlace = destinationMatch.candidates.length === 1 ? destinationMatch.candidates[0] : null;
+  const currentLocationRequested = !originText || ["my location", "current location", "current position", "मेरी लोकेशन", "मेरा वर्तमान स्थान", "मेरी जगह", "ਮੇਰੀ ਲੋਕੇਸ਼ਨ", "ਮੇਰੀ ਮੌਜੂਦਾ ਥਾਂ", "ਮੇਰੀ ਜਗ੍ਹਾ"].includes(originText.toLocaleLowerCase());
   state.routeOrigin = originPlace;
   state.routeDestination = destinationPlace;
   state.originQuery = currentLocationRequested ? "My location" : originText;
   state.destinationQuery = destinationText;
-  state.originCandidates = originPlace ? [originPlace] : [];
-  state.destinationCandidates = destinationPlace ? [destinationPlace] : [];
+  state.originContext = originMatch.context;
+  state.destinationContext = destinationMatch.context;
+  state.requestText = text;
+  state.originRange = originStart >= 0 && originText ? [originStart, originStart + originText.length] : null;
+  state.destinationRange = [destinationStart, destinationStart + destinationText.length];
+  state.originCandidates = currentLocationRequested ? [] : originMatch.candidates;
+  state.destinationCandidates = destinationMatch.candidates;
   state.routeAvailable = Boolean(originPlace && destinationPlace && originPlace !== destinationPlace);
   state.routeGeometry = null;
   state.activeRouteSteps = [];
@@ -155,38 +217,38 @@ function parseRequest(query) {
   const origin = originPlace?.name || (originText || "Your starting point is not identified");
   const destination = destinationPlace?.name || destinationText || "Destination not identified";
   $("#transcript").value = text;
-  $("#origin-value").textContent = origin;
-  $("#destination-value").textContent = destination;
+  $("#origin-value").textContent = originPlace ? endpointLabel(originPlace, "origin") : origin;
+  $("#destination-value").textContent = destinationPlace ? endpointLabel(destinationPlace, "destination") : destination;
   const aliasTitle = $(".alias-note strong");
   const aliasCopy = $(".alias-note span");
   if (state.requestMode === "mapped") {
     aliasTitle.textContent = "Places matched";
     aliasCopy.textContent = "Both endpoints are mapped. I’ll request a pedestrian route between these pins.";
-    $("#readback").textContent = `Walking route from ${origin} to ${destination}. Is that right?`;
+    refreshReadback();
     $("#confirm-route").textContent = "Haan, yahi hai";
   } else if (state.requestMode === "lookup") {
     aliasTitle.textContent = "Searching the map if needed";
     aliasCopy.textContent = "Known local names are matched first. Other endpoint names will be searched in OpenStreetMap.";
-    $("#readback").textContent = `I heard ${originText} to ${destinationText}. I’ll look for both places on the map. Is that right?`;
+    refreshReadback();
     $("#confirm-route").textContent = "Search map and route";
   } else if (state.requestMode === "current") {
     aliasTitle.textContent = "Starting from your location";
     aliasCopy.textContent = "Your location is requested only after you confirm this route.";
-    $("#readback").textContent = `Use your current location as the start and walk to ${destination}?`;
+    refreshReadback();
     $("#confirm-route").textContent = "Use my location";
   } else if (state.requestMode === "unavailable") {
     aliasTitle.textContent = "Place matched";
     aliasCopy.textContent = "I found one place, but need both a start and destination to calculate a route.";
-    $("#readback").textContent = `I found ${destination}. Tell me the starting landmark as well so I can find a walking route.`;
+    refreshReadback();
     $("#confirm-route").textContent = "Edit request";
   } else {
     aliasTitle.textContent = "Place not matched yet";
     aliasCopy.textContent = "Your words are preserved. Try another name or teach this route to the community.";
-    $("#readback").textContent = `I could not safely match “${text}” to a mapped place. Would you like to add it?`;
+    refreshReadback();
     $("#confirm-route").textContent = "Teach this route";
   }
-  showView("voice");
-  speak($("#readback").textContent);
+  if (navigate) showView("voice");
+  if (announce) speak($("#readback").textContent);
 }
 
 async function geocodeEndpoint(query, requestId) {
@@ -381,10 +443,13 @@ async function loadMappedRoute() {
   $("#start-navigation").disabled = true;
   $("#preview-steps").hidden = true;
   $("#route-note").hidden = true;
-  $("#route-title").textContent = `${origin.name} to ${destination.name}`;
+  $("#route-title").textContent = `${endpointLabel(origin, "origin")} to ${endpointLabel(destination, "destination")}`;
   $("#route-description").textContent = "Pedestrian route and turn instructions from mapped OpenStreetMap streets.";
-  $("#route-key-start").textContent = origin.name;
-  $("#route-key-end").textContent = destination.name;
+  $("#route-key-start").textContent = endpointLabel(origin, "origin");
+  $("#route-key-end").textContent = endpointLabel(destination, "destination");
+  if (state.originContext || state.destinationContext) {
+    $("#route-description").textContent = `Mapped walking route to the landmark anchors. Request context: ${[state.originContext, state.destinationContext].filter(Boolean).join(" → ")}.`;
+  }
   const curated = origin.name === "Amritsar Railway Station" && destination.name === "Harmandir Sahib";
   $("#route-badge").textContent = curated ? "◆ Curated route" : "OpenStreetMap walking route";
   $("#route-badge").className = curated ? "verified-badge" : "state-pill";
@@ -392,7 +457,7 @@ async function loadMappedRoute() {
     locations: [{ lat: origin.lat, lon: origin.lng }, { lat: destination.lat, lon: destination.lng }],
     costing: "pedestrian",
     units: "kilometers",
-    language: state.lang === "hi" ? "hi-IN" : "en-US"
+    language: state.lang === "hi" ? "hi-IN" : state.lang === "pa" ? "pa-IN" : "en-US"
   };
   try {
     let response = await fetch(`https://valhalla1.openstreetmap.de/route?json=${encodeURIComponent(JSON.stringify(request))}`);
@@ -479,7 +544,8 @@ function syncRouteMap(map) {
   const points = [state.routeOrigin, state.routeDestination].filter(Boolean);
   const candidatePins = [state.originCandidates.length > 1 ? state.originCandidates : [], state.destinationCandidates.length > 1 ? state.destinationCandidates : []].flat();
   points.forEach((place, index) => {
-    const marker = L.marker([place.lat, place.lng]).addTo(map).bindPopup(`${index === 0 ? "Start" : "Destination"}: ${place.name}`);
+    const context = index === 0 ? state.originContext : state.destinationContext;
+    const marker = L.marker([place.lat, place.lng]).addTo(map).bindPopup(`${index === 0 ? "Start" : "Destination"}: ${place.name}${context ? ` · ${context}` : ""}`);
     map.kidhrLayers.push(marker);
   });
   candidatePins.forEach(place => {
@@ -545,7 +611,8 @@ function bindHoldToTalk(buttonId, targetId) {
 function updateLanguage() {
   localStorage.setItem("kidhr-lang", state.lang);
   $("#language-select").value = state.lang;
-  $("#readback").textContent = copy[state.lang].confirm;
+  syncTranscriptEdit();
+  refreshReadback();
   toast(`Reply language changed to ${$("#language-select").selectedOptions[0].textContent}.`);
   speak($("#readback").textContent);
 }
@@ -602,8 +669,61 @@ function bindEvents() {
   $("#prompt-grid").addEventListener("click", event => { const button = event.target.closest("button"); if (!button) return; $("#find-input").value = button.textContent.replaceAll("“", "").replaceAll("”", ""); parseRequest($("#find-input").value); });
   $("#nearby-list").addEventListener("click", event => { const button = event.target.closest("button"); if (!button) return; $("#find-input").value = `My location to ${button.dataset.place}`; parseRequest($("#find-input").value); });
   $$('[data-alt]').forEach(button => button.addEventListener("click", () => { $("#transcript").value = button.dataset.alt; parseRequest(button.dataset.alt); }));
-  $$('[data-edit-detail]').forEach(button => button.addEventListener("click", () => { $("#transcript").focus(); toast(`Edit only the ${button.dataset.editDetail} words, then confirm again.`); }));
+  $$('[data-edit-detail]').forEach(button => button.addEventListener("click", () => {
+    const side = button.dataset.editDetail;
+    state.editingEndpoint = side;
+    const labels = state.lang === "hi"
+      ? { origin: "शुरुआती जगह बदलें", destination: "मंज़िल बदलें", save: "जगह अपडेट करें", cancel: "रद्द करें" }
+      : state.lang === "pa"
+        ? { origin: "ਸ਼ੁਰੂਆਤੀ ਥਾਂ ਬਦਲੋ", destination: "ਮੰਜ਼ਿਲ ਬਦਲੋ", save: "ਥਾਂ ਅੱਪਡੇਟ ਕਰੋ", cancel: "ਰੱਦ ਕਰੋ" }
+        : { origin: "Change starting point", destination: "Change destination", save: "Update place", cancel: "Cancel" };
+    $("#endpoint-editor-label").textContent = labels[side];
+    $("#save-endpoint-edit").textContent = labels.save;
+    $("#cancel-endpoint-edit").textContent = labels.cancel;
+    const range = side === "origin" ? state.originRange : state.destinationRange;
+    $("#endpoint-editor-input").value = range ? state.requestText.slice(range[0], range[1]) : "";
+    $("#endpoint-editor").hidden = false;
+    $("#endpoint-editor-input").placeholder = state.lang === "hi" ? "जगह का नाम लिखें" : state.lang === "pa" ? "ਥਾਂ ਦਾ ਨਾਮ ਲਿਖੋ" : "Type a place or landmark";
+    $("#endpoint-editor-input").focus();
+    $("#endpoint-editor-input").select();
+  }));
+  $("#cancel-endpoint-edit").addEventListener("click", () => {
+    $("#endpoint-editor").hidden = true;
+    state.editingEndpoint = null;
+  });
+  $("#save-endpoint-edit").addEventListener("click", () => {
+    const replacement = $("#endpoint-editor-input").value.trim();
+    if (!replacement) {
+      toast(state.lang === "hi" ? "जगह का नाम लिखें।" : state.lang === "pa" ? "ਥਾਂ ਦਾ ਨਾਮ ਲਿਖੋ।" : "Enter a place name first.");
+      $("#endpoint-editor-input").focus();
+      return;
+    }
+    const side = state.editingEndpoint;
+    const range = side === "origin" ? state.originRange : state.destinationRange;
+    let updatedRequest;
+    if (range) {
+      updatedRequest = `${state.requestText.slice(0, range[0])}${replacement}${state.requestText.slice(range[1])}`.trim();
+    } else {
+      updatedRequest = `${replacement} to ${state.destinationQuery}`.trim();
+    }
+    $("#endpoint-editor").hidden = true;
+    state.editingEndpoint = null;
+    $("#find-input").value = updatedRequest;
+    parseRequest(updatedRequest);
+    toast(state.lang === "hi" ? "जगह अपडेट हुई। अब रास्ते की पुष्टि करें।" : state.lang === "pa" ? "ਥਾਂ ਅੱਪਡੇਟ ਹੋ ਗਈ। ਹੁਣ ਰਸਤੇ ਦੀ ਪੁਸ਼ਟੀ ਕਰੋ।" : "Place updated. Review and confirm the route.");
+  });
   $("#confirm-route").addEventListener("click", () => {
+    const editedRequest = $("#transcript").value.trim();
+    if (editedRequest !== state.requestText) {
+      if (!editedRequest) {
+        toast("Enter a place or route before confirming.");
+        return;
+      }
+      $("#find-input").value = editedRequest;
+      parseRequest(editedRequest);
+      toast("Request updated. Review the corrected places, then confirm again.");
+      return;
+    }
     if (state.requestMode === "unknown") {
       $("#contrib-destination").value = $("#transcript").value;
       showView("contribute");
@@ -625,8 +745,8 @@ function bindEvents() {
       $("#route-time").textContent = "—";
       $("#route-title").textContent = `${state.originQuery} to ${state.destinationQuery}`;
       $("#route-description").textContent = "Looking up the place names and routing between the selected map pins.";
-      $("#route-key-start").textContent = state.routeOrigin?.name || state.originQuery;
-      $("#route-key-end").textContent = state.routeDestination?.name || state.destinationQuery;
+      $("#route-key-start").textContent = endpointLabel(state.routeOrigin, "origin");
+      $("#route-key-end").textContent = endpointLabel(state.routeDestination, "destination");
       resolveAndRoute();
       const message = "Searching the map for both places.";
       toast(message); speak(message); return;
@@ -666,9 +786,9 @@ function bindEvents() {
       state.routeDestination = chosen;
       state.destinationCandidates = [chosen];
     }
-    $("#route-key-start").textContent = state.routeOrigin?.name || "Starting point";
-    $("#route-key-end").textContent = state.routeDestination?.name || "Destination";
-    $("#route-title").textContent = `${state.routeOrigin?.name || "Starting point"} to ${state.routeDestination?.name || "Destination"}`;
+    $("#route-key-start").textContent = endpointLabel(state.routeOrigin, "origin");
+    $("#route-key-end").textContent = endpointLabel(state.routeDestination, "destination");
+    $("#route-title").textContent = `${endpointLabel(state.routeOrigin, "origin")} to ${endpointLabel(state.routeDestination, "destination")}`;
     renderPlaceChoices();
     Object.values(state.maps).forEach(syncRouteMap);
     if (state.routeOrigin && state.routeDestination && state.originCandidates.length === 1 && state.destinationCandidates.length === 1) {
@@ -689,7 +809,7 @@ function bindEvents() {
   $("#memory-search").addEventListener("input", event => { const query = event.target.value.toLowerCase(); renderMemory(memory.filter(item => `${item.was} ${item.now} ${item.note}`.toLowerCase().includes(query))); });
   $("#memory-grid").addEventListener("click", event => { const button = event.target.closest("[data-view]"); if (button) showView(button.dataset.view); });
   $("#language-select").addEventListener("change", event => { state.lang = event.target.value; updateLanguage(); });
-  $$('[data-script]').forEach(button => button.addEventListener("click", () => { state.script = button.dataset.script; localStorage.setItem("kidhr-script", state.script); $$('[data-script]').forEach(item => item.classList.toggle("active", item === button)); $("#readback").textContent = state.script === "native" ? copy[state.lang].confirm : "Railway Station ton Darbar Sahib tak paidal raasta labhan?"; toast("Script changed. Place names remain the same."); }));
+  $$('[data-script]').forEach(button => button.addEventListener("click", () => { state.script = button.dataset.script; localStorage.setItem("kidhr-script", state.script); $$('[data-script]').forEach(item => item.classList.toggle("active", item === button)); syncTranscriptEdit(); refreshReadback(true); toast("Script changed. Place names remain the same."); }));
   $("#large-text-btn").addEventListener("click", () => { document.body.classList.toggle("large-text"); localStorage.setItem("kidhr-large-text", document.body.classList.contains("large-text")); });
   $("#contribute-form").addEventListener("submit", event => { event.preventDefault(); const claim = { id: crypto.randomUUID(), author: state.deviceUser, origin: $("#contrib-origin").value.trim(), destination: $("#contrib-destination").value.trim(), steps: $("#contrib-steps").value.trim() }; const claims = JSON.parse(localStorage.getItem("kidhr-claims") || "[]"); claims.unshift(claim); localStorage.setItem("kidhr-claims", JSON.stringify(claims)); renderClaim(); event.target.reset(); toast(copy[state.lang].saved); speak(copy[state.lang].saved); setTimeout(() => showView("verify"), 500); });
   $$("[data-vote]").forEach(button => button.addEventListener("click", () => reviewClaim(button.dataset.vote)));
@@ -707,6 +827,7 @@ function init() {
   bindHoldToTalk("contribute-mic", "contrib-steps");
   $("#language-select").value = state.lang;
   $$('[data-script]').forEach(button => button.classList.toggle("active", button.dataset.script === state.script));
+  parseRequest($("#transcript").value, { announce: false, navigate: false });
   if (localStorage.getItem("kidhr-large-text") === "true") document.body.classList.add("large-text");
   if (!localStorage.getItem("kidhr-welcomed")) $("#welcome").hidden = false;
   renderClaim();
