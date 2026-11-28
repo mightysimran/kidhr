@@ -278,10 +278,11 @@ function bindHoldToTalk(buttonId, targetId) {
   button.addEventListener("contextmenu", event => event.preventDefault());
 }
 
-function updateLanguage() {
+function updateLanguage(announce = true) {
   localStorage.setItem("kidhr-lang", state.lang);
   $("#language-select").value = state.lang;
   $("#readback").textContent = copy[state.lang].confirm;
+  if (!announce) return;
   toast(`Reply language changed to ${$("#language-select").selectedOptions[0].textContent}.`);
   speak($("#readback").textContent);
 }
@@ -361,7 +362,7 @@ function bindEvents() {
   $("#large-text-btn").addEventListener("click", () => { document.body.classList.toggle("large-text"); localStorage.setItem("kidhr-large-text", document.body.classList.contains("large-text")); });
   $("#contribute-form").addEventListener("submit", event => { event.preventDefault(); const claim = { id: crypto.randomUUID(), author: state.deviceUser, origin: $("#contrib-origin").value.trim(), destination: $("#contrib-destination").value.trim(), steps: $("#contrib-steps").value.trim() }; const claims = JSON.parse(localStorage.getItem("kidhr-claims") || "[]"); claims.unshift(claim); localStorage.setItem("kidhr-claims", JSON.stringify(claims)); renderClaim(); event.target.reset(); toast(copy[state.lang].saved); speak(copy[state.lang].saved); setTimeout(() => showView("verify"), 500); });
   $$("[data-vote]").forEach(button => button.addEventListener("click", () => reviewClaim(button.dataset.vote)));
-  $("#begin-btn").addEventListener("click", () => { $("#welcome").hidden = true; localStorage.setItem("kidhr-welcomed", "yes"); updateLanguage(); });
+  $("#begin-btn").addEventListener("click", () => { $("#welcome").hidden = true; localStorage.setItem("kidhr-welcomed", "yes"); updateLanguage(false); });
   $$('[data-welcome-lang]').forEach(button => button.addEventListener("click", () => { $$('[data-welcome-lang]').forEach(item => item.classList.toggle("selected", item === button)); state.lang = button.dataset.welcomeLang; }));
   $("#install-btn").addEventListener("click", async () => { if (state.deferredInstall) { state.deferredInstall.prompt(); await state.deferredInstall.userChoice; state.deferredInstall = null; } else toast("Use your browser menu and choose “Install app” or “Add to Home Screen”."); });
   window.addEventListener("beforeinstallprompt", event => { event.preventDefault(); state.deferredInstall = event; });
