@@ -68,6 +68,8 @@ const state = {
   destinationRange: null,
   originCandidates: [],
   destinationCandidates: [],
+  originNeedsConfirmation: false,
+  destinationNeedsConfirmation: false,
   activeRouteSteps: [],
   routeInstructionLanguage: "en-US",
   geocodeCache: new Map(),
@@ -167,8 +169,10 @@ function syncTranscriptEdit() {
 }
 
 function endpointLabel(place, side) {
+  const query = side === "origin" ? state.originQuery : state.destinationQuery;
+  if (!place) return query || (side === "origin" ? "Starting point" : "Destination");
   const context = side === "origin" ? state.originContext : state.destinationContext;
-  return `${place?.name || (side === "origin" ? state.originQuery : state.destinationQuery)}${context ? ` · ${context}` : ""}`;
+  return `${place.name}${context ? ` · ${context}` : ""}`;
 }
 
 function parseRequest(query, { announce = true, navigate = true } = {}) {
@@ -183,7 +187,7 @@ function parseRequest(query, { announce = true, navigate = true } = {}) {
   const originStart = leadingFrom ? text.indexOf(leadingFrom[1]) : fromPhrase ? text.lastIndexOf(originText) : split ? 0 : -1;
   const destinationStart = leadingFrom ? text.lastIndexOf(destinationText) : fromPhrase ? 0 : split ? split.index + split[0].length : 0;
   const matchPlace = value => {
-    const normalize = input => input.toLocaleLowerCase().replace(/[^\p{L}\p{N}]+/gu, " ").trim();
+    const normalize = input => input.toLocaleLowerCase().replace(/[^\p{L}\p{M}\p{N}]+/gu, " ").trim();
     const normalized = normalize(value);
     const matches = places.flatMap(place => [place.name, ...place.alias.split("·").map(alias => alias.trim())]
       .map(alias => ({ place, alias, key: normalize(alias) })))
@@ -191,9 +195,16 @@ function parseRequest(query, { announce = true, navigate = true } = {}) {
     const uniquePlaces = [...new Map(matches.map(match => [match.place.name, match.place])).values()];
     const longest = matches.sort((a, b) => b.key.length - a.key.length)[0];
     const context = longest ? ` ${normalized} `.replace(` ${longest.key} `, " ").replace(/\s+/g, " ").trim() : "";
-    return { candidates: uniquePlaces, context };
+    const routeFiller = new Set([
+      "sri", "shri", "sahib", "ji", "tak", "paidal", "walking", "walk", "raasta", "rasta", "jana", "jaana", "hai", "kidhar", "where", "is", "it", "please",
+      "तक", "पैदल", "कृपया", "कहाँ", "है", "जी", "साहिब", "श्री",
+      "ਤੱਕ", "ਤਕ", "ਪੈਦਲ", "ਕਿਰਪਾ", "ਕਿੱਥੇ", "ਹੈ", "ਜੀ", "ਸਾਹਿਬ", "ਸ੍ਰੀ"
+    ]);
+    const meaningfulContext = context.split(" ").filter(word => !routeFiller.has(word)).join(" ").trim();
+    if (uniquePlaces.length > 1) return { candidates: uniquePlaces, context: "", needsConfirmation: true };
+    return { candidates: meaningfulContext ? [] : uniquePlaces, context: meaningfulContext ? context : "", needsConfirmation: Boolean(meaningfulContext) };
   };
-  const originMatch = originText ? matchPlace(originText) : { candidates: [], context: "" };
+  const originMatch = originText ? matchPlace(originText) : { candidates: [], context: "", needsConfirmation: false };
   const destinationMatch = matchPlace(destinationText);
   const originPlace = originMatch.candidates.length === 1 ? originMatch.candidates[0] : null;
   const destinationPlace = destinationMatch.candidates.length === 1 ? destinationMatch.candidates[0] : null;
@@ -209,6 +220,8 @@ function parseRequest(query, { announce = true, navigate = true } = {}) {
   state.destinationRange = [destinationStart, destinationStart + destinationText.length];
   state.originCandidates = currentLocationRequested ? [] : originMatch.candidates;
   state.destinationCandidates = destinationMatch.candidates;
+  state.originNeedsConfirmation = !currentLocationRequested && originMatch.needsConfirmation;
+  state.destinationNeedsConfirmation = destinationMatch.needsConfirmation;
   state.routeAvailable = Boolean(originPlace && destinationPlace && originPlace !== destinationPlace);
   state.routeGeometry = null;
   state.activeRouteSteps = [];
@@ -284,16 +297,16 @@ function renderPlaceChoices() {
   const container = $("#place-choices");
   container.replaceChildren();
   const ambiguous = [
-    { key: "origin", label: "Starting point", candidates: state.originCandidates },
-    { key: "destination", label: "Destination", candidates: state.destinationCandidates }
-  ].filter(item => item.candidates.length > 1);
+    { key: "origin", label: "Starting point", candidates: state.originCandidates, needsConfirmation: state.originNeedsConfirmation },
+    { key: "destination", label: "Destination", candidates: state.destinationCandidates, needsConfirmation: state.destinationNeedsConfirmation }
+  ].filter(item => item.candidates.length > 1 || item.needsConfirmation);
   if (!ambiguous.length) return;
   const heading = document.createElement("strong");
-  heading.textContent = "Choose the matching place";
+  heading.textContent = "Confirm the matching place";
   container.append(heading);
   ambiguous.forEach(item => {
     const label = document.createElement("p");
-    label.textContent = item.label;
+    label.textContent = item.needsConfirmation ? `Confirm ${item.label.toLowerCase()} for the full request` : item.label;
     container.append(label);
     item.candidates.forEach((place, index) => {
       const button = document.createElement("button");
@@ -373,9 +386,15 @@ async function resolveAndRoute() {
       state.originCandidates = [locationPlace];
       state.routeOrigin = locationPlace;
     }
-    if (!state.originCandidates.length) state.originCandidates = await geocodeEndpoint(state.originQuery, requestId);
+    if (!state.originCandidates.length) {
+      state.originCandidates = await geocodeEndpoint(state.originQuery, requestId);
+      if (state.originCandidates.length && state.originNeedsConfirmation) state.originContext = "";
+    }
     if (requestId !== state.routeRequestId) return;
-    if (!state.destinationCandidates.length) state.destinationCandidates = await geocodeEndpoint(state.destinationQuery, requestId);
+    if (!state.destinationCandidates.length) {
+      state.destinationCandidates = await geocodeEndpoint(state.destinationQuery, requestId);
+      if (state.destinationCandidates.length && state.destinationNeedsConfirmation) state.destinationContext = "";
+    }
     if (requestId !== state.routeRequestId) return;
     if (!state.originCandidates.length || !state.destinationCandidates.length) {
       const missing = !state.originCandidates.length ? state.originQuery : state.destinationQuery;
@@ -400,13 +419,13 @@ async function resolveAndRoute() {
       $("#place-choices").append(contribute);
       return;
     }
-    if (state.originCandidates.length === 1) state.routeOrigin = state.originCandidates[0];
-    if (state.destinationCandidates.length === 1) state.routeDestination = state.destinationCandidates[0];
+    if (state.originCandidates.length === 1 && !state.originNeedsConfirmation) state.routeOrigin = state.originCandidates[0];
+    if (state.destinationCandidates.length === 1 && !state.destinationNeedsConfirmation) state.routeDestination = state.destinationCandidates[0];
     renderPlaceChoices();
     Object.values(state.maps).forEach(syncRouteMap);
-    const hasAmbiguity = state.originCandidates.length > 1 || state.destinationCandidates.length > 1;
+    const hasAmbiguity = state.originCandidates.length > 1 || state.destinationCandidates.length > 1 || state.originNeedsConfirmation || state.destinationNeedsConfirmation;
     if (hasAmbiguity) {
-      $("#route-status").textContent = "More than one place matched. Choose the right start and destination before routing.";
+      $("#route-status").textContent = "Confirm the map match for each highlighted endpoint before routing.";
       $("#route-badge").textContent = "Choose map pins";
       return;
     }
@@ -542,7 +561,7 @@ function syncRouteMap(map) {
   map.kidhrLayers?.forEach(layer => map.removeLayer(layer));
   map.kidhrLayers = [];
   const points = [state.routeOrigin, state.routeDestination].filter(Boolean);
-  const candidatePins = [state.originCandidates.length > 1 ? state.originCandidates : [], state.destinationCandidates.length > 1 ? state.destinationCandidates : []].flat();
+  const candidatePins = [state.originCandidates.length > 1 || state.originNeedsConfirmation ? state.originCandidates : [], state.destinationCandidates.length > 1 || state.destinationNeedsConfirmation ? state.destinationCandidates : []].flat();
   points.forEach((place, index) => {
     const context = index === 0 ? state.originContext : state.destinationContext;
     const marker = L.marker([place.lat, place.lng]).addTo(map).bindPopup(`${index === 0 ? "Start" : "Destination"}: ${place.name}${context ? ` · ${context}` : ""}`);
@@ -566,13 +585,12 @@ function bindHoldToTalk(buttonId, targetId) {
   const button = document.getElementById(buttonId);
   const Recognition = window.SpeechRecognition || window.webkitSpeechRecognition;
   let recognition;
-  const start = event => {
-    event.preventDefault();
-    if (!Recognition) {
-      toast("Voice recognition is not available here. You can type instead.");
-      document.getElementById(targetId)?.focus();
-      return;
-    }
+  let promptUtterance;
+  let promptDelay;
+  let isHeld = false;
+
+  const startRecognition = () => {
+    if (!isHeld) return;
     recognition = new Recognition();
     recognition.lang = state.lang === "pa" ? "pa-IN" : state.lang === "hi" ? "hi-IN" : "en-IN";
     recognition.interimResults = true;
@@ -588,16 +606,56 @@ function bindHoldToTalk(buttonId, targetId) {
       toast(message);
       speak(message);
     };
-    recognition.onend = () => button.classList.remove("listening");
+    recognition.onend = () => {
+      recognition = null;
+      button.classList.remove("listening");
+    };
     try {
       recognition.start();
       button.classList.add("listening");
       toast(copy[state.lang].listen);
-      speak(copy[state.lang].listen);
-    } catch (_) {}
+    } catch (_) {
+      recognition = null;
+    }
+  };
+
+  const start = event => {
+    event.preventDefault();
+    if (isHeld) return;
+    if (!Recognition) {
+      toast("Voice recognition is not available here. You can type instead.");
+      document.getElementById(targetId)?.focus();
+      return;
+    }
+    isHeld = true;
+    if (!("speechSynthesis" in window) || !("SpeechSynthesisUtterance" in window)) {
+      startRecognition();
+      return;
+    }
+    speechSynthesis.cancel();
+    promptUtterance = new SpeechSynthesisUtterance(copy[state.lang].listen);
+    promptUtterance.lang = state.lang === "pa" ? "pa-IN" : state.lang === "hi" ? "hi-IN" : "en-IN";
+    promptUtterance.onend = () => {
+      promptUtterance = null;
+      promptDelay = setTimeout(startRecognition, 150);
+    };
+    promptUtterance.onerror = () => {
+      promptUtterance = null;
+      startRecognition();
+    };
+    speechSynthesis.speak(promptUtterance);
   };
   const stop = event => {
     event.preventDefault();
+    isHeld = false;
+    clearTimeout(promptDelay);
+    promptDelay = null;
+    if (promptUtterance) {
+      promptUtterance.onend = null;
+      promptUtterance.onerror = null;
+      promptUtterance = null;
+      speechSynthesis.cancel();
+    }
     if (recognition) recognition.stop();
     button.classList.remove("listening");
   };
@@ -608,11 +666,12 @@ function bindHoldToTalk(buttonId, targetId) {
   button.addEventListener("contextmenu", event => event.preventDefault());
 }
 
-function updateLanguage() {
+function updateLanguage(announce = true) {
   localStorage.setItem("kidhr-lang", state.lang);
   $("#language-select").value = state.lang;
   syncTranscriptEdit();
   refreshReadback();
+  if (!announce) return;
   toast(`Reply language changed to ${$("#language-select").selectedOptions[0].textContent}.`);
   speak($("#readback").textContent);
 }
@@ -782,16 +841,18 @@ function bindEvents() {
     if (button.dataset.endpoint === "origin") {
       state.routeOrigin = chosen;
       state.originCandidates = [chosen];
+      state.originNeedsConfirmation = false;
     } else {
       state.routeDestination = chosen;
       state.destinationCandidates = [chosen];
+      state.destinationNeedsConfirmation = false;
     }
     $("#route-key-start").textContent = endpointLabel(state.routeOrigin, "origin");
     $("#route-key-end").textContent = endpointLabel(state.routeDestination, "destination");
     $("#route-title").textContent = `${endpointLabel(state.routeOrigin, "origin")} to ${endpointLabel(state.routeDestination, "destination")}`;
     renderPlaceChoices();
     Object.values(state.maps).forEach(syncRouteMap);
-    if (state.routeOrigin && state.routeDestination && state.originCandidates.length === 1 && state.destinationCandidates.length === 1) {
+    if (state.routeOrigin && state.routeDestination && state.originCandidates.length === 1 && state.destinationCandidates.length === 1 && !state.originNeedsConfirmation && !state.destinationNeedsConfirmation) {
       if (state.routeOrigin.lat === state.routeDestination.lat && state.routeOrigin.lng === state.routeDestination.lng) {
         $("#route-status").textContent = "The start and destination are the same place. Choose a different endpoint.";
         return;
@@ -813,7 +874,7 @@ function bindEvents() {
   $("#large-text-btn").addEventListener("click", () => { document.body.classList.toggle("large-text"); localStorage.setItem("kidhr-large-text", document.body.classList.contains("large-text")); });
   $("#contribute-form").addEventListener("submit", event => { event.preventDefault(); const claim = { id: crypto.randomUUID(), author: state.deviceUser, origin: $("#contrib-origin").value.trim(), destination: $("#contrib-destination").value.trim(), steps: $("#contrib-steps").value.trim() }; const claims = JSON.parse(localStorage.getItem("kidhr-claims") || "[]"); claims.unshift(claim); localStorage.setItem("kidhr-claims", JSON.stringify(claims)); renderClaim(); event.target.reset(); toast(copy[state.lang].saved); speak(copy[state.lang].saved); setTimeout(() => showView("verify"), 500); });
   $$("[data-vote]").forEach(button => button.addEventListener("click", () => reviewClaim(button.dataset.vote)));
-  $("#begin-btn").addEventListener("click", () => { $("#welcome").hidden = true; localStorage.setItem("kidhr-welcomed", "yes"); updateLanguage(); });
+  $("#begin-btn").addEventListener("click", () => { $("#welcome").hidden = true; localStorage.setItem("kidhr-welcomed", "yes"); updateLanguage(false); });
   $$('[data-welcome-lang]').forEach(button => button.addEventListener("click", () => { $$('[data-welcome-lang]').forEach(item => item.classList.toggle("selected", item === button)); state.lang = button.dataset.welcomeLang; }));
   $("#install-btn").addEventListener("click", async () => { if (state.deferredInstall) { state.deferredInstall.prompt(); await state.deferredInstall.userChoice; state.deferredInstall = null; } else toast("Use your browser menu and choose “Install app” or “Add to Home Screen”."); });
   window.addEventListener("beforeinstallprompt", event => { event.preventDefault(); state.deferredInstall = event; });
