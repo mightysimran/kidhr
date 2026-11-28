@@ -142,6 +142,7 @@ The prototype deliberately uses a small static architecture so teammates can run
 | Spoken replies | Browser Speech Synthesis API |
 | Pilot persistence | Browser `localStorage` |
 | Offline support | Service worker and web app manifest |
+| Local container | Docker Compose with Nginx |
 | Hosting | Static Vercel deployment |
 
 Leaflet and web fonts are loaded from public CDNs. Maps, live routing, fonts, and first-time asset loading therefore need an internet connection.
@@ -173,6 +174,10 @@ kidhr/
 ├── service-worker.js       Application-shell caching
 ├── manifest.webmanifest    PWA metadata and installation settings
 ├── icon.svg                Application icon
+├── Dockerfile              Reproducible Nginx container image
+├── docker-compose.yml      One-command local container startup
+├── nginx.conf              Static files and SPA fallback routing
+├── .dockerignore           Files excluded from the image build context
 ├── vercel.json             Vercel framework and SPA routing configuration
 ├── package.json            Local commands, with no runtime dependencies
 ├── scripts/
@@ -205,6 +210,32 @@ The current JavaScript is intentionally contained in one file for a small protot
 No `npm install` is required because the project has no package dependencies.
 
 ## Run locally
+
+### Recommended submission setup using Docker
+
+Install Docker Desktop or Docker Engine with the Compose plugin, then run this command from the repository directory:
+
+```bash
+docker compose up --build
+```
+
+Open `http://localhost:3000`. The port mapping is declared in `docker-compose.yml`, and the main kidhr screen is served directly by Nginx.
+
+Check the running service with:
+
+```bash
+docker compose ps
+```
+
+Stop and remove the local container with:
+
+```bash
+docker compose down
+```
+
+The prototype needs no environment variables or secret keys, so no `.env` file is required. Maps, routing, web fonts, and browser speech services still require network access from the browser.
+
+### Run without Docker
 
 From the repository directory, use either option below.
 
