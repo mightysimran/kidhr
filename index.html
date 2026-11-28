@@ -64,7 +64,7 @@
               <p class="lead">Say it the way you would tell a friend. We understand landmarks, old names and local shortcuts.</p>
               <form id="find-form" class="find-box">
                 <label class="sr-only" for="find-input">Where do you want to go?</label>
-                <input id="find-input" autocomplete="off" value="Railway station ton Darbar Sahib" placeholder="e.g. Hall Gate ke andar Sharma di dukaan">
+                <input id="find-input" autocomplete="off" required placeholder="Where do you want to go? e.g. Hall Gate to Darbar Sahib">
                 <button type="submit" class="btn primary">Find way</button>
               </form>
               <button class="voice-button" id="home-mic" type="button"><span class="mic-disc">●</span><span><strong>Press and hold to speak</strong><small id="mic-help">Release when you finish</small></span></button>
@@ -86,7 +86,7 @@
           <div class="two-column">
             <article class="card transcript-card">
               <label for="transcript">Editable transcript</label>
-              <textarea id="transcript" rows="4">Railway station ton Darbar Sahib</textarea>
+              <textarea id="transcript" rows="4" placeholder="Your spoken request will appear here."></textarea>
               <div class="alternatives"><span>Other hearing</span><button data-alt="Railway station to Darbar Sahib">Railway station to Darbar Sahib</button><button data-alt="Railway station ton Golden Temple">…ton Golden Temple</button></div>
               <button class="voice-button compact" id="voice-mic"><span class="mic-disc">●</span><span><strong>Hold to say it again</strong><small>Confirmed details stay saved</small></span></button>
             </article>
