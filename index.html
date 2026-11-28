@@ -95,6 +95,11 @@
               <div class="intent-row"><span>Starting near</span><strong id="origin-value">Amritsar Railway Station</strong><button data-edit-detail="origin">Change</button></div>
               <div class="intent-line"></div>
               <div class="intent-row"><span>Going to</span><strong id="destination-value">Harmandir Sahib</strong><button data-edit-detail="destination">Change</button></div>
+              <div class="endpoint-editor" id="endpoint-editor" hidden>
+                <label id="endpoint-editor-label" for="endpoint-editor-input">Change endpoint</label>
+                <input id="endpoint-editor-input" type="text" autocomplete="off" placeholder="Type a place or landmark">
+                <div class="button-row"><button class="btn secondary" id="cancel-endpoint-edit" type="button">Cancel</button><button class="btn primary" id="save-endpoint-edit" type="button">Update place</button></div>
+              </div>
               <div class="alias-note"><strong>“Darbar Sahib” remembered</strong><span>Local name for Harmandir Sahib</span></div>
               <p class="readback" id="readback">Railway Station ton Darbar Sahib tak paidal raasta labhan?</p>
               <div class="button-row"><button class="btn secondary" data-view="home">Change request</button><button class="btn primary" id="confirm-route">Haan, yahi hai</button></div>
@@ -103,15 +108,17 @@
         </section>
 
         <section class="view" data-screen="route" aria-labelledby="route-title">
-          <div class="page-head"><div><p class="eyebrow">ROUTE PREVIEW</p><h1 id="route-title">Station to Darbar Sahib</h1><p>Landmark-first walking directions from mapped streets.</p></div><span class="verified-badge">◆ Curated route</span></div>
+          <div class="page-head"><div><p class="eyebrow">ROUTE PREVIEW</p><h1 id="route-title">Station to Darbar Sahib</h1><p id="route-description">Pedestrian directions from mapped streets.</p></div><span class="verified-badge" id="route-badge">◆ Curated route</span></div>
           <div class="map-layout">
-            <article class="map-card"><div id="route-map" class="map" aria-label="Map showing the walking route"></div><div class="map-key"><span><i class="dot start"></i> Railway Station</span><span><i class="dot end"></i> Darbar Sahib</span></div></article>
+            <article class="map-card"><div id="route-map" class="map" aria-label="Map showing the requested walking route"></div><div class="map-key"><span><i class="dot start"></i> <span id="route-key-start">Railway Station</span></span><span><i class="dot end"></i> <span id="route-key-end">Darbar Sahib</span></span></div></article>
             <aside class="route-panel card">
-              <div class="route-summary"><div><strong id="route-distance">2.2 km</strong><span>Distance</span></div><div><strong id="route-time">30 min</strong><span>Walking</span></div><div><strong>5</strong><span>Landmark cues</span></div></div>
+              <div class="route-summary"><div><strong id="route-distance">—</strong><span>Distance</span></div><div><strong id="route-time">—</strong><span>Walking</span></div><div><strong id="route-summary-cues">—</strong><span>Route steps</span></div></div>
               <p class="route-status" id="route-status">Checking mapped walking streets…</p>
-              <ol id="preview-steps" class="steps"></ol>
-              <div class="route-note"><strong>Local note</strong><p>Hall Bazaar can be crowded in the evening. Follow pedestrian signs near the heritage street.</p></div>
-              <div class="button-row"><button class="btn secondary" id="share-route">Share</button><button class="btn primary" id="start-navigation">Start walking</button></div>
+              <div id="place-choices" class="place-choices" aria-live="polite"></div>
+              <ol id="preview-steps" class="steps" hidden></ol>
+              <div class="route-note" id="route-note" hidden><strong>Local note</strong><p>Hall Bazaar can be crowded in the evening. Follow pedestrian signs near the heritage street.</p></div>
+              <p class="map-attribution">Place search and route data © OpenStreetMap contributors.</p>
+              <div class="button-row"><button class="btn secondary" id="share-route">Share</button><button class="btn primary" id="start-navigation" disabled>Start walking</button></div>
             </aside>
           </div>
         </section>
